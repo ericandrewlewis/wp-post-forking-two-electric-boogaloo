@@ -11,7 +11,19 @@
 		});
 
 		$('.pf-create-fork').on( 'click', function() {
-			wp.ajax.post( 'pf_create_post_fork', { postData: wp.autosave.getPostData() } );
+			$('#submitpost').find( ':button, :submit, a.submitdelete, #post-preview' ).prop( 'disabled', true );
+			$('#submitpost .spinner').show();
+			wp.ajax.send( 'pf_create_post_fork',
+				{
+					data: {
+						postData: wp.autosave.getPostData()
+					},
+					success: function( response ) {
+						var revisionId = response.revision_id;
+						window.location = 'post.php?post=' + revisionId + '&action=edit';
+					}
+				}
+			);
 		});
 	});
 
