@@ -11,8 +11,10 @@
 		});
 
 		$('.pf-create-fork').on( 'click', function() {
-			$('#submitpost').find( ':button, :submit, a.submitdelete, #post-preview' ).prop( 'disabled', true );
-			$('#submitpost .spinner').show();
+			$('#submitpost, #postforksdiv')
+				.find( ':button, :submit, a.submitdelete, #post-preview' )
+					.prop( 'disabled', true );
+			$('#submitpost .spinner, #postforksdiv .spinner').show();
 			wp.ajax.send( 'pf_create_post_fork',
 				{
 					data: {

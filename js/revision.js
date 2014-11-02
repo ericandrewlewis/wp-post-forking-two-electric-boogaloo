@@ -17,7 +17,7 @@
 				wp.Backbone.View.prototype.render.apply( this, arguments );
 
 				$('html').css( 'overflow-y', 'scroll' );
-				$('#postbox-container-2').append( this.el );
+				$('#compareforktooriginaldiv .inside').append( this.el );
 				this.updateCompareTwoMode();
 				this.renderDiff( this.model.diff() );
 				this.views.ready();

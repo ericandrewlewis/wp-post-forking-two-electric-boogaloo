@@ -182,7 +182,7 @@ add_filter( 'get_edit_post_link', function( $link, $post_ID, $context ) {
 }, 10, 3 );
 
 /**
- * Add a meta box for post forks.
+ * Add a meta box for post forks on the Edit Post page.
  */
 add_action( 'add_meta_boxes', function( $post_type, $post ) {
 	if ( ! post_type_supports( $post_type, 'forks' ) ) {
@@ -197,6 +197,16 @@ add_action( 'add_meta_boxes', function( $post_type, $post ) {
 }, 10 , 2 );
 
 /**
+ * Add a meta box for comparison on the Edit Fork page.
+ */
+add_action( 'add_meta_boxes', function( $post_type, $post ) {
+	if ( $post->post_type != 'revision' || $post->post_status == 'inherit' ) {
+		return;
+	}
+	add_meta_box('compareforktooriginaldiv', __('Compare changes'), '__return_true', null, 'normal', 'core');
+}, 10 , 2 );
+
+/**
  * The post forks meta box.
  *
  * @param  int $post_id
@@ -205,28 +215,37 @@ function pf_post_forks_meta_box( $post_id ) {
 	if ( ! $post = get_post( $post_id ) )
 		return;
 
+	// @todo decide what to do with this, from the revisions meta box callback.
 	// $args array with (parent, format, right, left, type) deprecated since 3.6
 	// if ( is_array( $type ) ) {
 	// 	$type = ! empty( $type['type'] ) ? $type['type']  : $type;
 	// 	_deprecated_argument( __FUNCTION__, '3.6' );
 	// }
 
-	if ( ! $forks = pf_get_post_forks( $post->ID ) )
-		return;
+	$forks = pf_get_post_forks( $post->ID );
 
-	$rows = '';
-	foreach ( $forks as $fork ) {
-		if ( ! current_user_can( 'read_post', $fork->ID ) )
-			continue;
+	?><div class="misc-pub-section" style="text-align: right;">
+		<span class="spinner"></span>
+		<button type="button" class="pf-create-fork button button-primary">Create a fork</button>
+	</div><?php
 
-		$rows .= "\t<li>" . wp_post_revision_title_expanded( $fork ) . "</li>\n";
+	if ( ! empty( $forks ) ) {
+		$rows = '';
+		foreach ( $forks as $fork ) {
+			if ( ! current_user_can( 'read_post', $fork->ID ) )
+				continue;
+
+			$rows .= "\t<li>" . wp_post_revision_title_expanded( $fork ) . "</li>\n";
+		}
+
+		echo "<div class='hide-if-js'><p>" . __( 'JavaScript must be enabled to use this feature.' ) . "</p></div>\n";
+
+		echo "<ul class='post-forks hide-if-no-js'>\n";
+		echo $rows;
+		echo "</ul>";
+	} else {
+		_e( 'No forks for this post yet.' );
 	}
-
-	echo "<div class='hide-if-js'><p>" . __( 'JavaScript must be enabled to use this feature.' ) . "</p></div>\n";
-
-	echo "<ul class='post-forks hide-if-no-js'>\n";
-	echo $rows;
-	echo "</ul>";
 }
 
 /**
@@ -296,7 +315,7 @@ add_action( 'post_submitbox_misc_actions', function() {
 
 add_filter( 'admin_title', function( $admin_title, $title ) {
 	global $post;
-	if ( $post->post_type != 'revision' || $post->post_status == 'inherit' ) {
+	if ( empty( $post ) || $post->post_type != 'revision' || $post->post_status == 'inherit' ) {
 		return $admin_title;
 	}
 	$admin_title = __( 'Edit fork' );
