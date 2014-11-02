@@ -50,6 +50,7 @@ add_action( 'admin_enqueue_scripts', function() {
 			return;
 		}
 
+		wp_enqueue_style( 'post-forking-revision-css', plugins_url( 'css/revision-edit.css', __FILE__ ) );
 		wp_enqueue_script( 'post-forking-revision-edit',
 			plugins_url( 'js/revision.js', __FILE__ ),
 			array( 'jquery', 'backbone', 'post', 'wp-util', 'revisions' ) );
@@ -146,6 +147,8 @@ add_filter( 'wp_insert_post_data', function( $data, $postarr ) {
 
 /**
  * When a revision is published, merge it into the original and delete the fork.
+ *
+ * @todo figure out how to delete merged forks.
  */
 add_action( 'save_post_revision', function( $post_ID, $post, $update ) {
 	$fork = $post;
@@ -165,7 +168,6 @@ add_filter( 'get_edit_post_link', function( $link, $post_ID, $context ) {
 	$post = get_post( $post_ID );
 	// Short-circuit for non-revisions and WP revisions (non-forks).
 	if ( $post->post_type != 'revision' || $post->post_status == 'inherit' ) {
-
 		return $link;
 	}
 
@@ -268,3 +270,47 @@ add_filter( 'post_updated_messages', function( $messages ) {
 	$messages['post'][11221] = __( 'Fork merged.', 'post-forking' );
 	return $messages;
 } );
+
+add_action( 'post_submitbox_misc_actions', function() {
+	global $post;
+	if ( $post->post_type != 'revision' || $post->post_status == 'inherit' ) {
+		return;
+	}
+	$fork = $post;
+	$original_post = get_post( $fork->post_parent );
+	?><div class="misc-pub-section"><?php
+	printf( __( 'This is a fork of %s.' ),
+		sprintf( '<a href="%s">%s</a>',
+			get_edit_post_link( $original_post->ID, 'link' ),
+			$original_post->post_title ) );
+	?></div>
+	<?php // @todo figure out if having two IDs on the same page is bad.
+		  // it probably is for some browsers. ?>
+	<div class="pf-publishing-actions">
+	<div class="pf-publishing-action">
+	<span class="spinner"></span>
+			<input type="submit" name="publish" class="button button-primary button-large" value="<?php _e( 'Merge fork' ) ?>" accesskey="p"></div>
+	<div class="clear"></div>
+	</div><?php
+});
+
+add_filter( 'admin_title', function( $admin_title, $title ) {
+	global $post;
+	if ( $post->post_type != 'revision' || $post->post_status == 'inherit' ) {
+		return $admin_title;
+	}
+	$admin_title = __( 'Edit fork' );
+	return $admin_title;
+}, 10, 2 );
+
+/**
+ * Hacky filter choice to change the 'Edit Post' title.
+ */
+add_filter( 'post_updated_messages', function( $messages ) {
+	global $title, $post;
+	if ( $post->post_type != 'revision' || $post->post_status == 'inherit' ) {
+		return $messages;
+	}
+	$title = __( 'Edit fork' );
+	return $messages;
+}, 10, 2 );
