@@ -1,8 +1,11 @@
 <?php
 /**
- * This plugin isn't even a plugin yet - doesn't even have a proper header.
+ * Plugin Name: Post Forking 2: Electric Boogaloo
+ * Author: ericandrewlewis
+ */
+/**
  *
- * It can only run on trunk along with my work in trac ticket #30232.
+ * This can only run on trunk along with my work in trac ticket #30232.
  *
  * This plugin can't be used on a post with NYT Live Blogging 1.0 because that
  * unenqueues autosave, which this depends on.
