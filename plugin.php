@@ -16,7 +16,13 @@
  * Create a button in the the post Publish metabox to "Save as draft update".
  */
 add_action( 'post_submitbox_misc_actions', function() {
-	?><button type="button" class="pf-create-fork">Create a fork</button><?php
+	global $post;
+	if ( ! post_type_supports( $post->post_type, 'forks' ) ) {
+		return;
+	}
+	?><div class="misc-pub-section" style="text-align: center;">
+		<button type="button" class="pf-create-fork button button-primary">Create a fork</button>
+	</div><?php
 });
 
 /**
@@ -89,11 +95,21 @@ add_action( 'admin_footer-post.php', function() {
 } );
 
 /**
- * Add post type support to the revisions post type so revisions can be edited.
+ * Add some post type support to the revisions post type
+ * so a revision's post fields can be edited.
  */
 
 add_action('init', function() {
+	add_post_type_support( 'revision', 'title' );
 	add_post_type_support( 'revision', 'editor' );
+});
+
+/**
+ * Add forking post type support for posts.
+ */
+
+add_action('init', function() {
+	add_post_type_support( 'post', 'forks' );
 });
 
 /**
@@ -137,9 +153,9 @@ add_action( 'save_post_revision', function( $post_ID, $post, $update ) {
 		return;
 	}
 	$original = get_post( $post->post_parent );
+	$original->post_title = $fork->post_title;
 	$original->post_content = $fork->post_content;
 	$new = wp_update_post( $original );
-	wp_delete_post( $fork->ID, true );
 }, 10, 3 );
 
 /**
@@ -162,3 +178,93 @@ add_filter( 'get_edit_post_link', function( $link, $post_ID, $context ) {
 
 	return sprintf( $post_type_object->_edit_link . $action, $post->ID );
 }, 10, 3 );
+
+/**
+ * Add a meta box for post forks.
+ */
+add_action( 'add_meta_boxes', function( $post_type, $post ) {
+	if ( ! post_type_supports( $post_type, 'forks' ) ) {
+		return;
+	}
+	$forks = pf_get_post_forks( $post->ID );
+
+	// We should aim to show the forks metabox only when there are forks.
+	if ( ! empty( $forks ) ) {
+		add_meta_box('postforksdiv', __('Forks'), 'pf_post_forks_meta_box', null, 'normal', 'core');
+	}
+}, 10 , 2 );
+
+/**
+ * The post forks meta box.
+ *
+ * @param  int $post_id
+ */
+function pf_post_forks_meta_box( $post_id ) {
+	if ( ! $post = get_post( $post_id ) )
+		return;
+
+	// $args array with (parent, format, right, left, type) deprecated since 3.6
+	// if ( is_array( $type ) ) {
+	// 	$type = ! empty( $type['type'] ) ? $type['type']  : $type;
+	// 	_deprecated_argument( __FUNCTION__, '3.6' );
+	// }
+
+	if ( ! $forks = pf_get_post_forks( $post->ID ) )
+		return;
+
+	$rows = '';
+	foreach ( $forks as $fork ) {
+		if ( ! current_user_can( 'read_post', $fork->ID ) )
+			continue;
+
+		$rows .= "\t<li>" . wp_post_revision_title_expanded( $fork ) . "</li>\n";
+	}
+
+	echo "<div class='hide-if-js'><p>" . __( 'JavaScript must be enabled to use this feature.' ) . "</p></div>\n";
+
+	echo "<ul class='post-forks hide-if-no-js'>\n";
+	echo $rows;
+	echo "</ul>";
+}
+
+/**
+ * Get post forks.
+ *
+ * @param  integer $post_id
+ * @return array
+ */
+function pf_get_post_forks( $post_id = 0 ) {
+	$post = get_post( $post_id );
+	if ( ! $post || empty( $post->ID ) )
+		return array();
+
+	$post_stati = array_values( get_post_stati() );
+	unset( $post_stati[ array_search( 'inherit', $post_stati ) ] );
+	unset( $post_stati[ array_search( 'publish', $post_stati ) ] );
+
+	$args = array( 'post_type' => 'revision', 'post_parent' => $post->ID, 'post_status' => $post_stati );
+
+	if ( ! $forks = get_children( $args ) )
+		return array();
+
+	return $forks;
+}
+
+/**
+ * When a fork is published, redirect to the original post's edit page.
+ */
+add_action( 'redirect_post_location', function( $location, $post_id ) {
+	$post = get_post( $post_id );
+	if ( $post->post_type != 'revision' || $post->post_status != 'publish' ) {
+		return $location;
+	}
+	return add_query_arg( 'message', 11221, get_edit_post_link( $post->post_parent, 'link' ) );
+}, 10, 2 );
+
+/**
+ * Add a message to alert user when a fork has been mergd.
+ */
+add_filter( 'post_updated_messages', function( $messages ) {
+	$messages['post'][11221] = __( 'Fork merged.', 'post-forking' );
+	return $messages;
+} );
